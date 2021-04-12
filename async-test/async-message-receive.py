@@ -35,7 +35,7 @@ async def main(loop):
     async with aioboto3.resource('dynamodb') as dynamo:
         dynamo_table = await dynamo.Table(RULES_TABLE)
         proc = RouterOrchestrator(connection, queue_name, other_queue, dynamo_table)
-        await proc.run()
+        await proc.run(dynamo_table)
 
     # # Creating channel
     # channel = await connection.channel()

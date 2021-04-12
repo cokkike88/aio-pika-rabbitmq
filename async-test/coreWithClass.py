@@ -3,6 +3,7 @@ import aio_pika
 from dataclasses import dataclass
 from dynamodb_json import json_util as dynamodb_json
 import rapidjson
+from functools import partial
 
 async def process_message(message: aio_pika.IncomingMessage):
     async with message.process():
@@ -24,8 +25,9 @@ class RouterOrchestrator:
     other_queue: str
     dynamo_table: 'DynamoDB.Table'
 
-    async def run(self):
+    async def run(self, dynamoTable: 'DynamoDB.Table'):
         print("Entro ----")
+
         channel = await self.rabbit.channel()
 
         # Maximum message count which will be
@@ -44,7 +46,7 @@ class RouterOrchestrator:
         await queue2.bind(exchange, 'healthcare.lead.router.routed')
 
         await queue.consume(self.process_message)
-        await queue2.consume(self.process_message2)
+        await queue2.consume(partial(self.process_message2, dynamoTable))
 
         return self.rabbit
 
@@ -53,14 +55,22 @@ class RouterOrchestrator:
         print(message.body)
         await asyncio.sleep(1)
 
-    async def process_message2(self, message: aio_pika.IncomingMessage):
+    async def process_message2(self, table: 'DynamoDB.Table', message: aio_pika.IncomingMessage):
         print("********" + self.other_queue +"********")
         print(message.body)
         body = rapidjson.loads(message.body)
         body = body['body']
         # print('body', body['body'])
         print('sesssion_id', body['sessionId'])
-        await self.findData()
+        try:
+            res = await table.get_item(
+                Key={
+                    'destination_id': '20210302161834.31a9afa402d144'
+                }
+            )
+            print(res)
+        except Exception as ex:
+            print('ERROR', ex)
         # await asyncio.sleep(1)
 
     async def findData(self):
