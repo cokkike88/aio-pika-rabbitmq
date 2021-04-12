@@ -1,7 +1,11 @@
 import asyncio
 import aio_pika
+import aioboto3
 import core
+from os import environ
 from coreWithClass import RouterOrchestrator
+
+RULES_TABLE = environ.get('RULES_TABLE', 'hc-qa-typ-router-worker-destinations-dynamodb-table')
 
 # async def process_message(message: aio_pika.IncomingMessage):
 #     async with message.process():
@@ -13,7 +17,7 @@ from coreWithClass import RouterOrchestrator
 #     async with message.process():
 #         print("---------queue_test2----------")
 #         print(message.body)
-#         await asyncio.sleep(1)        
+#         await asyncio.sleep(1)
 
 
 async def main(loop):
@@ -23,14 +27,15 @@ async def main(loop):
 
     queue_name = "test_queue"
     other_queue = "test_queue2"
-    
+
     print('MAIN --')
 
     # return await core.run_exe(connection, queue_name, other_queue)
-    
-    # async with connection:
-    proc = RouterOrchestrator(connection, queue_name, other_queue)
-    return await proc.run()
+
+    async with aioboto3.resource('dynamodb') as dynamo:
+        dynamo_table = await dynamo.Table(RULES_TABLE)
+        proc = RouterOrchestrator(connection, queue_name, other_queue, dynamo_table)
+        await proc.run()
 
     # # Creating channel
     # channel = await connection.channel()
